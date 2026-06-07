@@ -5,7 +5,6 @@ import { Loader2, Play, Users } from 'lucide-react';
 import type { Manager } from '@/types';
 import { PageHeader } from '../shared/PageHeader';
 import { SectionHeader } from '../shared/SectionHeader';
-import { AddTeamForm } from '../admin/AddTeamForm';
 import { NationDrawPicker } from './NationDrawPicker';
 import { MAX_TEAMS } from '@/config/constants';
 
@@ -15,7 +14,7 @@ interface AuctionSetupProps {
   onStarted: () => void;
 }
 
-export function AuctionSetup({ leagueData, onTeamAdded, onStarted }: AuctionSetupProps) {
+export function AuctionSetup({ leagueData, onStarted }: AuctionSetupProps) {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,11 +54,17 @@ export function AuctionSetup({ leagueData, onTeamAdded, onStarted }: AuctionSetu
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <section className="lg:col-span-5 fifa-card backdrop-blur-sm rounded-sm p-6 flex flex-col gap-4">
           <SectionHeader title="Franchises" icon={<Users className="w-4 h-4" />} />
-          <AddTeamForm teamCount={leagueData.length} onSuccess={onTeamAdded} />
+          <p className="text-[13px] text-[#888]">
+            Teams are created by players in the{' '}
+            <a href="/auction/lobby" className="text-[#00A94F] hover:underline">
+              lobby
+            </a>
+            . They&apos;ll appear here as people join.
+          </p>
 
-          {leagueData.length > 0 && (
-            <ul className="flex flex-col gap-2 mt-2 border-t border-[#00A94F]/10 pt-4">
-              {leagueData.map((team, i) => (
+          {leagueData.length > 0 ? (
+            <ul className="flex flex-col gap-2 mt-1 border-t border-[#00A94F]/10 pt-4">
+              {leagueData.map((team) => (
                 <li
                   key={team.id}
                   className="flex items-center justify-between py-2 border-b border-[#00A94F]/10 last:border-0"
@@ -76,6 +81,10 @@ export function AuctionSetup({ leagueData, onTeamAdded, onStarted }: AuctionSetu
                 </li>
               ))}
             </ul>
+          ) : (
+            <p className="text-[13px] text-[#666] border border-dashed border-white/[0.12] rounded-sm px-3 py-4 text-center">
+              No teams yet — waiting for players to create them in the lobby.
+            </p>
           )}
         </section>
 

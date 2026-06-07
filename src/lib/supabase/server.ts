@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseEnv } from '../env';
+import { supabaseFetch } from './fetch';
 
 /** Server-side Supabase client (Route Handlers). Uses anon key + RLS. */
 export function createServerSupabase() {
@@ -7,5 +8,7 @@ export function createServerSupabase() {
   if (!env) {
     throw new Error('Supabase is not configured');
   }
-  return createClient(env.url, env.anonKey);
+  return createClient(env.url, env.anonKey, {
+    global: { fetch: supabaseFetch },
+  });
 }

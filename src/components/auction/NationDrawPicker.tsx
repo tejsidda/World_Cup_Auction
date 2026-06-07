@@ -19,20 +19,46 @@ export function NationDrawPicker({ mode }: NationDrawPickerProps) {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [pickerCountry, setPickerCountry] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [nationsRes, settingsRes] = await Promise.all([
         fetch('/api/pool/nations'),
         fetch('/api/auction/draw-settings'),
       ]);
-      const nationsData = await nationsRes.json();
-      const settingsData = await settingsRes.json();
-      if (nationsData.error) throw new Error(nationsData.error);
+
+      let nationsData: PoolNation[] | { error?: string };
+      let settingsData: { drawCountries?: string[]; drawRules?: Record<string, NationDrawRule>; error?: string };
+
+      try {
+        nationsData = await nationsRes.json();
+        settingsData = await settingsRes.json();
+      } catch {
+        throw new Error('Could not read server response');
+      }
+
+      if (!nationsRes.ok || !Array.isArray(nationsData)) {
+        const msg =
+          !Array.isArray(nationsData) && nationsData.error
+            ? nationsData.error
+            : 'Could not load nations';
+        throw new Error(msg);
+      }
+
+      if (!settingsRes.ok || settingsData.error) {
+        throw new Error(settingsData.error ?? 'Could not load draw settings');
+      }
+
       setNations(nationsData);
       setSelectedCountries(settingsData.drawCountries ?? []);
       setDrawRules(settingsData.drawRules ?? {});
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not load draw pool';
+      setLoadError(message);
+      setNations([]);
     } finally {
       setLoading(false);
     }
@@ -88,6 +114,28 @@ export function NationDrawPicker({ mode }: NationDrawPickerProps) {
 
   if (loading) {
     return <p className="text-[13px] text-[#666]">Loading nations…</p>;
+  }
+
+  if (loadError) {
+    return (
+      <div className="space-y-3">
+        <p className="text-[13px] text-red-400 border border-red-500/20 bg-red-500/5 rounded-lg px-4 py-3">
+          {loadError}
+        </p>
+        <p className="text-[12px] text-[#666] leading-relaxed">
+          The app could not reach Supabase. Check your project is not paused,{' '}
+          <span className="font-mono text-white/50">.env.local</span> URL/key are correct,
+          and your network can reach supabase.co — then retry.
+        </p>
+        <button
+          type="button"
+          onClick={() => load()}
+          className="text-[12px] text-[#00A94F] hover:underline"
+        >
+          Retry
+        </button>
+      </div>
+    );
   }
 
   return (

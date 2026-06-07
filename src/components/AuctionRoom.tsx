@@ -10,6 +10,7 @@ import { DrawRulesPanel } from './auction/DrawRulesPanel';
 import { PlayerSearch } from './auction/PlayerSearch';
 import { SellPlayerForm } from './auction/SellPlayerForm';
 import { RecentlySold, notifySaleRecorded } from './auction/RecentlySold';
+import { BiddingPanel } from './auction/BiddingPanel';
 import { SquadFlag } from './fifa/SquadFlag';
 import { PageHeader } from './shared/PageHeader';
 import { SectionHeader } from './shared/SectionHeader';
@@ -254,6 +255,22 @@ export function AuctionRoom({ leagueData, onSold }: AuctionRoomProps) {
               )}
             </div>
           )}
+
+          <div className="fifa-card backdrop-blur-sm rounded-sm p-5 border-[#00A94F]/20">
+            <SectionHeader
+              title="Blind bidding"
+              accent="green"
+              icon={<Gavel className="w-4 h-4 text-[#00A94F]/70" />}
+            />
+            <div className="mt-3">
+              <BiddingPanel
+                isAdmin
+                showPlayerCard={false}
+                totalTeams={leagueData.length}
+                onResolved={handleSold}
+              />
+            </div>
+          </div>
 
           <div className="fifa-card backdrop-blur-sm rounded-sm overflow-hidden">
             <button

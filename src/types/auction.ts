@@ -1,6 +1,6 @@
 import type { Position } from '../types';
 
-export type AuctionStatus = 'available' | 'on_block' | 'sold';
+export type AuctionStatus = 'available' | 'on_block' | 'sold' | 'skipped';
 
 export type AuctionPhase = 'setup' | 'in_progress';
 
@@ -33,6 +33,31 @@ export type PoolNation = {
   abbr: string;
   count: number;
   available: number;
+};
+
+export type LotStatus = 'open' | 'resolved' | 'void';
+
+export type RevealedBid = {
+  teamId: string;
+  teamName: string;
+  amount: number | null; // null = pass
+};
+
+export type LotResult = {
+  sold: boolean;
+  teamName: string | null;
+  amount: number | null;
+};
+
+export type CurrentLotState = {
+  lotId: string | null;
+  status: LotStatus | 'none';
+  player: PoolPlayer | null;
+  bidCount: number; // teams that have acted (bid or pass) — count only, while open
+  myBidExists: boolean;
+  myBidAmount: number | null; // null + exists = pass
+  bids: RevealedBid[] | null; // populated only when resolved (reveal all)
+  result: LotResult | null;
 };
 
 export type SoldRecord = {

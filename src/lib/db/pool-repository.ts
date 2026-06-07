@@ -17,7 +17,7 @@ type PoolRow = {
 
 function toPoolRow(
   p: FifaPlayerDisplay,
-  auctionStatus: 'available' | 'sold' | 'on_block'
+  auctionStatus: 'available' | 'sold' | 'on_block' | 'skipped'
 ): PoolRow {
   return {
     fifa_id: p.fifaId,
@@ -50,11 +50,15 @@ export async function importFifaPool(): Promise<{ imported: number; available: n
   const onBlockIds = new Set(
     (existing ?? []).filter((r) => r.auction_status === 'on_block').map((r) => r.fifa_id)
   );
+  const skippedIds = new Set(
+    (existing ?? []).filter((r) => r.auction_status === 'skipped').map((r) => r.fifa_id)
+  );
 
   const rows = merged.map((p) => {
-    let status: 'available' | 'sold' | 'on_block' = 'available';
+    let status: 'available' | 'sold' | 'on_block' | 'skipped' = 'available';
     if (soldIds.has(p.fifaId)) status = 'sold';
     else if (onBlockIds.has(p.fifaId)) status = 'on_block';
+    else if (skippedIds.has(p.fifaId)) status = 'skipped';
     return toPoolRow(p, status);
   });
 
@@ -80,6 +84,7 @@ export type PoolStats = {
   available: number;
   onBlock: number;
   sold: number;
+  skipped: number;
 };
 
 export async function getPoolStats(): Promise<PoolStats> {
@@ -112,11 +117,19 @@ export async function getPoolStats(): Promise<PoolStats> {
 
   if (soldError) throw new Error(soldError.message);
 
+  const { count: skipped, error: skippedError } = await supabase
+    .from('pool_players')
+    .select('*', { count: 'exact', head: true })
+    .eq('auction_status', 'skipped');
+
+  if (skippedError) throw new Error(skippedError.message);
+
   return {
     total: total ?? 0,
     available: available ?? 0,
     onBlock: onBlock ?? 0,
     sold: sold ?? 0,
+    skipped: skipped ?? 0,
   };
 }
 

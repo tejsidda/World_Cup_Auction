@@ -30,4 +30,5 @@ export type PoolStats = {
   available: number;
   onBlock: number;
   sold: number;
+  skipped?: number;
 };

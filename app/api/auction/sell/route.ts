@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
+import { requireAdmin, isAuthedContext } from '@/lib/auth/require-user';
 import { sellOnBlockPlayer } from '@/lib/db/auction-repository';
 
 export async function POST(request: Request) {
+  const ctx = await requireAdmin();
+  if (!isAuthedContext(ctx)) return ctx;
+
   try {
     const body = await request.json();
     const teamId = typeof body.teamId === 'string' ? body.teamId : '';

@@ -1,13 +1,17 @@
 import { createServerSupabase } from '../supabase/server';
+import { createServiceSupabase } from '../supabase/service';
 import { SQUAD_SIZE } from '../../config/constants';
 import type {
   AuctionPhase,
   AuctionState,
   AuctionStatus,
+  CurrentLotState,
   DrawSettings,
+  LotResult,
   NationDrawRule,
   PoolNation,
   PoolPlayer,
+  RevealedBid,
   SoldRecord,
 } from '../../types/auction';
 import type { Position } from '../../types';
@@ -126,7 +130,7 @@ export async function getPoolPlayersByCountry(countryAbbr: string): Promise<Pool
     .from('pool_players')
     .select('fifa_id, display_name, country_abbr, squad_id, position, auction_status, points')
     .eq('country_abbr', countryAbbr)
-    .in('auction_status', ['available', 'on_block'])
+    .in('auction_status', ['available', 'on_block', 'skipped'])
     .order('display_name');
 
   if (error) throw new Error(error.message);
@@ -231,11 +235,15 @@ export async function getOnBlockPlayer(): Promise<PoolPlayer | null> {
   return data ? mapPoolRow(data as PoolRow) : null;
 }
 
+/**
+ * Move the current on-block player aside as "skipped" (not sold) so the random
+ * draw won't surface them again. The admin can still search + call them up.
+ */
 async function clearOnBlock(): Promise<void> {
   const supabase = createServerSupabase();
   const { error } = await supabase
     .from('pool_players')
-    .update({ auction_status: 'available' })
+    .update({ auction_status: 'skipped' })
     .eq('auction_status', 'on_block');
 
   if (error) throw new Error(error.message);
@@ -258,6 +266,8 @@ export async function callUpPlayer(fifaId: number): Promise<PoolPlayer> {
     throw new Error('Player is already sold');
   }
 
+  // Switching the player on the block invalidates any in-flight bidding.
+  await voidOpenLots();
   await clearOnBlock();
 
   const { data, error } = await supabase
@@ -315,7 +325,7 @@ export async function searchPoolPlayers(query: string, limit = 20): Promise<Pool
     .from('pool_players')
     .select('fifa_id, display_name, country_abbr, squad_id, position, auction_status, points')
     .ilike('display_name', `%${q}%`)
-    .in('auction_status', ['available', 'on_block'])
+    .in('auction_status', ['available', 'on_block', 'skipped'])
     .order('display_name')
     .limit(limit);
 
@@ -328,20 +338,34 @@ export async function resetAuction(): Promise<{
   rostersCleared: number;
 }> {
   const supabase = createServerSupabase();
+  const bidsDb = createServiceSupabase();
 
   await clearOnBlock();
+
+  // Clear Phase 4 bidding state so the room resets to a clean slate.
+  const { error: bidsDeleteError } = await bidsDb
+    .from('bids')
+    .delete()
+    .gte('created_at', '1970-01-01');
+  if (bidsDeleteError) throw new Error(bidsDeleteError.message);
+
+  const { error: lotsVoidError } = await supabase
+    .from('lots')
+    .update({ status: 'void' })
+    .neq('status', 'void');
+  if (lotsVoidError) throw new Error(lotsVoidError.message);
 
   const { data: poolRows, error: poolFetchError } = await supabase
     .from('pool_players')
     .select('fifa_id')
-    .in('auction_status', ['sold', 'on_block']);
+    .in('auction_status', ['sold', 'on_block', 'skipped']);
 
   if (poolFetchError) throw new Error(poolFetchError.message);
 
   const { error: poolUpdateError } = await supabase
     .from('pool_players')
     .update({ auction_status: 'available' })
-    .in('auction_status', ['sold', 'on_block']);
+    .in('auction_status', ['sold', 'on_block', 'skipped']);
 
   if (poolUpdateError) throw new Error(poolUpdateError.message);
 
@@ -517,6 +541,263 @@ export async function sellOnBlockPlayer(
     teamName: team.team_name,
     soldAt: inserted.created_at,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4 — blind bidding (lots + bids)
+// ---------------------------------------------------------------------------
+
+const EPSILON = 0.001;
+
+async function voidOpenLots(): Promise<void> {
+  const supabase = createServerSupabase();
+  const { error } = await supabase
+    .from('lots')
+    .update({ status: 'void' })
+    .eq('status', 'open');
+  if (error) throw new Error(error.message);
+}
+
+async function getPoolPlayerByFifaId(fifaId: number): Promise<PoolPlayer | null> {
+  const supabase = createServerSupabase();
+  const { data, error } = await supabase
+    .from('pool_players')
+    .select('fifa_id, display_name, country_abbr, squad_id, position, auction_status, points')
+    .eq('fifa_id', fifaId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? mapPoolRow(data as PoolRow) : null;
+}
+
+type OpenLotRow = { id: string; fifa_id: number; status: string };
+
+async function getLatestLot(): Promise<{
+  id: string;
+  fifa_id: number;
+  status: string;
+  winning_team_id: string | null;
+  winning_amount: number | null;
+} | null> {
+  const supabase = createServerSupabase();
+  const { data, error } = await supabase
+    .from('lots')
+    .select('id, fifa_id, status, winning_team_id, winning_amount')
+    .neq('status', 'void')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ?? null;
+}
+
+async function getOpenLot(): Promise<OpenLotRow | null> {
+  const supabase = createServerSupabase();
+  const { data, error } = await supabase
+    .from('lots')
+    .select('id, fifa_id, status')
+    .eq('status', 'open')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as OpenLotRow) ?? null;
+}
+
+export async function openLot(): Promise<{ lotId: string }> {
+  const supabase = createServerSupabase();
+  const onBlock = await getOnBlockPlayer();
+  if (!onBlock) throw new Error('Put a player on the block before opening bids');
+
+  const existing = await getOpenLot();
+  if (existing) {
+    if (existing.fifa_id === onBlock.fifaId) return { lotId: existing.id };
+    await voidOpenLots();
+  }
+
+  const { data, error } = await supabase
+    .from('lots')
+    .insert({ fifa_id: onBlock.fifaId, status: 'open' })
+    .select('id')
+    .single();
+
+  if (error) throw new Error(error.message);
+  return { lotId: data.id };
+}
+
+export async function cancelCurrentLot(): Promise<void> {
+  await voidOpenLots();
+}
+
+export async function submitBid(teamId: string, amount: number | null): Promise<void> {
+  if (!teamId) throw new Error('You are not on a team');
+  if (amount !== null) {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new Error('Enter a valid bid amount');
+    }
+  }
+
+  const open = await getOpenLot();
+  if (!open) throw new Error('Bidding is not open right now');
+
+  const bidsDb = createServiceSupabase();
+  const { error } = await bidsDb
+    .from('bids')
+    .upsert(
+      { lot_id: open.id, team_id: teamId, amount },
+      { onConflict: 'lot_id,team_id' }
+    );
+
+  if (error) throw new Error(error.message);
+}
+
+export async function closeAndResolveLot(): Promise<LotResult> {
+  const supabase = createServerSupabase();
+  const open = await getOpenLot();
+  if (!open) throw new Error('No open bidding to close');
+
+  const onBlock = await getOnBlockPlayer();
+
+  const bidsDb = createServiceSupabase();
+  const { data: bidRows, error: bidError } = await bidsDb
+    .from('bids')
+    .select('team_id, amount, created_at')
+    .eq('lot_id', open.id)
+    .not('amount', 'is', null)
+    .order('amount', { ascending: false })
+    .order('created_at', { ascending: true });
+
+  if (bidError) throw new Error(bidError.message);
+
+  // Find the highest bid whose team can still afford it and has squad room.
+  let winner: { team_id: string; amount: number } | null = null;
+  for (const row of bidRows ?? []) {
+    const amount = Number(row.amount);
+    const { squadCount, remaining } = await getTeamAuctionState(row.team_id);
+    if (squadCount < SQUAD_SIZE && amount <= remaining + EPSILON) {
+      winner = { team_id: row.team_id, amount };
+      break;
+    }
+  }
+
+  if (winner && onBlock) {
+    const sale = await sellOnBlockPlayer(winner.team_id, winner.amount);
+    const { error } = await supabase
+      .from('lots')
+      .update({
+        status: 'resolved',
+        winning_team_id: winner.team_id,
+        winning_amount: winner.amount,
+        resolved_at: new Date().toISOString(),
+      })
+      .eq('id', open.id);
+    if (error) throw new Error(error.message);
+    return { sold: true, teamName: sale.teamName, amount: winner.amount };
+  }
+
+  // No valid bid — set the player aside (skipped) and resolve unsold.
+  await clearOnBlock();
+  const { error } = await supabase
+    .from('lots')
+    .update({ status: 'resolved', resolved_at: new Date().toISOString() })
+    .eq('id', open.id);
+  if (error) throw new Error(error.message);
+
+  return { sold: false, teamName: null, amount: null };
+}
+
+export async function getCurrentLotState(teamId: string | null): Promise<CurrentLotState> {
+  const supabase = createServerSupabase();
+  const bidsDb = createServiceSupabase();
+  const empty: CurrentLotState = {
+    lotId: null,
+    status: 'none',
+    player: null,
+    bidCount: 0,
+    myBidExists: false,
+    myBidAmount: null,
+    bids: null,
+    result: null,
+  };
+
+  const [onBlock, lot] = await Promise.all([getOnBlockPlayer(), getLatestLot()]);
+
+  async function myBidFor(lotId: string) {
+    if (!teamId) return { myBidExists: false, myBidAmount: null };
+    const { data } = await bidsDb
+      .from('bids')
+      .select('amount')
+      .eq('lot_id', lotId)
+      .eq('team_id', teamId)
+      .maybeSingle();
+    if (!data) return { myBidExists: false, myBidAmount: null };
+    return { myBidExists: true, myBidAmount: data.amount === null ? null : Number(data.amount) };
+  }
+
+  // A player is on the block.
+  if (onBlock) {
+    if (lot && lot.status === 'open' && lot.fifa_id === onBlock.fifaId) {
+      const { count } = await bidsDb
+        .from('bids')
+        .select('*', { count: 'exact', head: true })
+        .eq('lot_id', lot.id);
+      const mine = await myBidFor(lot.id);
+      return {
+        lotId: lot.id,
+        status: 'open',
+        player: onBlock,
+        bidCount: count ?? 0,
+        myBidExists: mine.myBidExists,
+        myBidAmount: mine.myBidAmount,
+        bids: null,
+        result: null,
+      };
+    }
+    // On the block but bidding not opened yet.
+    return { ...empty, player: onBlock };
+  }
+
+  // Nothing on the block — surface the most recent resolved lot's result.
+  if (lot && lot.status === 'resolved') {
+    const player = await getPoolPlayerByFifaId(lot.fifa_id);
+
+    const { data: rows, error } = await bidsDb
+      .from('bids')
+      .select('team_id, amount, teams(team_name)')
+      .eq('lot_id', lot.id)
+      .order('amount', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: true });
+    if (error) throw new Error(error.message);
+
+    const bids: RevealedBid[] = (rows ?? []).map((r) => {
+      const teams = r.teams as { team_name: string } | { team_name: string }[] | null;
+      const teamName = Array.isArray(teams) ? teams[0]?.team_name : teams?.team_name;
+      return {
+        teamId: r.team_id,
+        teamName: teamName ?? '—',
+        amount: r.amount === null ? null : Number(r.amount),
+      };
+    });
+
+    const winnerBid = bids.find((b) => b.teamId === lot.winning_team_id);
+    const mine = await myBidFor(lot.id);
+
+    return {
+      lotId: lot.id,
+      status: 'resolved',
+      player,
+      bidCount: bids.length,
+      myBidExists: mine.myBidExists,
+      myBidAmount: mine.myBidAmount,
+      bids,
+      result: {
+        sold: Boolean(lot.winning_team_id),
+        teamName: winnerBid?.teamName ?? null,
+        amount: lot.winning_amount === null ? null : Number(lot.winning_amount),
+      },
+    };
+  }
+
+  return empty;
 }
 
 export async function getRecentSales(limit = 10): Promise<SoldRecord[]> {

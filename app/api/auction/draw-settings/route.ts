@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireAdmin, isAuthedContext } from '@/lib/auth/require-user';
 import { getDrawSettings, saveDrawSettings } from '@/lib/db/auction-repository';
 import type { NationDrawRule } from '@/types/auction';
 
@@ -29,6 +30,9 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const ctx = await requireAdmin();
+  if (!isAuthedContext(ctx)) return ctx;
+
   try {
     const body = await request.json();
     const drawCountries = Array.isArray(body.drawCountries)

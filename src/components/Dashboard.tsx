@@ -2,15 +2,16 @@
 
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { RefreshCw } from 'lucide-react';
 import { PointsTable } from '@/components/PointsTable';
 import { TeamsBoard } from '@/components/TeamsBoard';
 import { PlayersPortfolio } from '@/components/PlayersPortfolio';
-import { AuctionRoom } from '@/components/AuctionRoom';
+import { AuctionRoomSection } from '@/components/auction/AuctionRoomSection';
 import { AdminPage } from '@/components/admin/AdminPage';
 import { useLeague } from '@/hooks/useLeague';
+import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { LeagueGate } from '@/components/LeagueGate';
 import type { ViewState } from '@/types/app';
 
@@ -57,6 +58,22 @@ export function Dashboard() {
   const [view, setView] = useState<ViewState>('points-table');
   const [selectedManagerId, setSelectedManagerId] = useState<string | null>(null);
   const { leagueData, loading, syncing, error, reload, syncStandings, isConfigured } = useLeague();
+  const { isAdmin, loading: authLoading } = useAdminAccess();
+
+  useEffect(() => {
+    if (!authLoading && view === 'admin' && !isAdmin) {
+      setView('points-table');
+    }
+  }, [authLoading, view, isAdmin]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requested = params.get('view');
+    const allowed: ViewState[] = ['points-table', 'teams', 'auction'];
+    if (requested && allowed.includes(requested as ViewState)) {
+      setView(requested as ViewState);
+    }
+  }, []);
 
   const handleSelectTeam = (managerId: string) => {
     setSelectedManagerId(managerId);
@@ -116,19 +133,27 @@ export function Dashboard() {
                   {syncing ? 'Syncing…' : 'Refresh Standings'}
                 </span>
               </button>
-              <button
-                onClick={() => {
-                  setView('admin');
-                  setSelectedManagerId(null);
-                }}
-                className={`text-[11px] sm:text-[13px] font-display font-semibold uppercase tracking-wide px-2.5 sm:px-3 py-1.5 rounded-sm border transition-colors ${
-                  view === 'admin'
-                    ? 'bg-[#00A94F]/10 border-[#00A94F]/25 text-white'
-                    : 'bg-white/[0.04] border-white/[0.08] text-white/50 hover:text-white hover:border-white/[0.12]'
-                }`}
+              {isAdmin && (
+                <button
+                  onClick={() => {
+                    setView('admin');
+                    setSelectedManagerId(null);
+                  }}
+                  className={`text-[11px] sm:text-[13px] font-display font-semibold uppercase tracking-wide px-2.5 sm:px-3 py-1.5 rounded-sm border transition-colors ${
+                    view === 'admin'
+                      ? 'bg-[#00A94F]/10 border-[#00A94F]/25 text-white'
+                      : 'bg-white/[0.04] border-white/[0.08] text-white/50 hover:text-white hover:border-white/[0.12]'
+                  }`}
+                >
+                  Admin
+                </button>
+              )}
+              <a
+                href="/auction/lobby"
+                className="text-[11px] sm:text-[13px] font-display font-semibold uppercase tracking-wide px-2.5 sm:px-3 py-1.5 rounded-sm border bg-white/[0.04] border-white/[0.08] text-white/50 hover:text-white hover:border-white/[0.12] transition-colors"
               >
-                Admin
-              </button>
+                Lobby
+              </a>
               <div className="hidden sm:flex p-0.5 bg-black/40 rounded-sm border border-[#00A94F]/15">
                 {NAV_TABS.map((tab) => (
                   <button
@@ -188,7 +213,7 @@ export function Dashboard() {
       </nav>
 
       <main className="relative z-10 max-w-[1200px] w-full px-4 sm:px-6 py-12 pb-24 h-full">
-        {view === 'admin' ? (
+        {view === 'admin' && isAdmin ? (
           <motion.div
             key="admin"
             initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
@@ -212,7 +237,7 @@ export function Dashboard() {
             exit={{ opacity: 0, filter: 'blur(4px)', y: -10 }}
             transition={{ type: 'spring', damping: 25, stiffness: 250 }}
           >
-            <AuctionRoom leagueData={leagueData} onSold={reload} />
+            <AuctionRoomSection leagueData={leagueData} onSold={reload} isAdmin={isAdmin} />
           </motion.div>
         ) : (
           <LeagueGate
