@@ -1,6 +1,6 @@
 import { pickTopAsset, sortByStandings } from '../league';
 import type { DbTeamRow } from '../supabase/types';
-import type { Manager, Player } from '../../types';
+import type { Manager, Player, TeamMemberInfo } from '../../types';
 
 const HISTORY_LIMIT = 15;
 const MIN_HISTORY_POINTS = 7;
@@ -32,6 +32,23 @@ function mapHistory(rows: DbTeamRow['team_point_history'], totalPoints: number):
   return [...pad, ...values].slice(-HISTORY_LIMIT);
 }
 
+function mapMembers(row: DbTeamRow): TeamMemberInfo[] {
+  return (row.team_members ?? [])
+    .slice()
+    .sort((a, b) => a.slot - b.slot)
+    .map((m) => {
+      const profiles = m.profiles;
+      const displayName = Array.isArray(profiles)
+        ? profiles[0]?.display_name
+        : profiles?.display_name;
+      return {
+        userId: m.user_id,
+        displayName: displayName ?? 'Player',
+        isCreator: m.user_id === row.created_by,
+      };
+    });
+}
+
 export function mapTeamRowToManager(row: DbTeamRow): Manager {
   const roster = row.players.map(mapPlayer);
   const totalPoints = roster.reduce((sum, p) => sum + p.points, 0);
@@ -47,6 +64,7 @@ export function mapTeamRowToManager(row: DbTeamRow): Manager {
     pointsLast24h: row.points_last_24h,
     history: mapHistory(row.team_point_history, totalPoints),
     topAsset: pickTopAsset(roster),
+    members: mapMembers(row),
   };
 
   return manager;

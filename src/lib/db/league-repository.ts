@@ -10,6 +10,7 @@ const LEAGUE_SELECT = `
   budget_total,
   points_last_24h,
   sort_order,
+  created_by,
   players (
     id,
     team_id,
@@ -24,6 +25,11 @@ const LEAGUE_SELECT = `
   team_point_history (
     total_points,
     recorded_at
+  ),
+  team_members (
+    slot,
+    user_id,
+    profiles ( display_name )
   )
 `;
 

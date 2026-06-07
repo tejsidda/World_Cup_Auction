@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'motion/react';
+import { Crown } from 'lucide-react';
 import { SQUAD_SIZE } from '../config/constants';
 import { Player, Position, Manager } from '../types';
 import { SplitText } from './SplitText';
@@ -39,7 +40,19 @@ export function PlayersPortfolio({ managerId, leagueData, onBack }: PlayersPortf
               <SplitText text={manager.teamName} delay={0.1} />
             </motion.h2>
             <p className="text-[#888] text-[12px] mt-0.5 flex flex-wrap items-center gap-2">
-              <span>{manager.name}</span>
+              {manager.members.length === 0 ? (
+                <span className="italic text-[#666]">No members yet</span>
+              ) : (
+                manager.members.map((m, i) => (
+                  <span key={m.userId} className="inline-flex items-center gap-1">
+                    {i > 0 && <span className="text-[#555]">&middot;</span>}
+                    {m.displayName}
+                    {m.isCreator && (
+                      <Crown className="w-2.5 h-2.5 text-[#E5A93D]" aria-label="Creator" />
+                    )}
+                  </span>
+                ))
+              )}
               <span className="w-1 h-1 rounded-full bg-white/20"></span>
               <span className="font-mono">{manager.totalPoints} PTS</span>
             </p>

@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'motion/react';
-import { Shield } from 'lucide-react';
+import { Crown, Users } from 'lucide-react';
 import { SQUAD_SIZE } from '../config/constants';
 import { Manager } from '../types';
 import { SplitText } from './SplitText';
@@ -45,9 +45,21 @@ export function TeamsBoard({ leagueData, onSelectTeam }: TeamsBoardProps) {
                 <motion.h3 layoutId={`title-${manager.id}`} className="font-medium text-[#EDEDED] text-[16px] tracking-tight origin-left pr-4 truncate overflow-hidden pb-[2px]">
                   <SplitText text={manager.teamName} delay={index * 0.04} stagger={0.015} className="truncate max-w-full" />
                 </motion.h3>
-                <p className="text-[#888] text-[13px] flex items-center gap-1.5">
-                  <Shield className="w-3 h-3 group-hover:text-white transition-colors" />
-                  {manager.name}
+                <p className="text-[#888] text-[13px] flex items-center gap-1.5 flex-wrap">
+                  <Users className="w-3 h-3 shrink-0" />
+                  {manager.members.length === 0 ? (
+                    <span className="text-[#666] italic">No members yet</span>
+                  ) : (
+                    manager.members.map((m, i) => (
+                      <span key={m.userId} className="inline-flex items-center gap-1">
+                        {i > 0 && <span className="text-[#555]">&middot;</span>}
+                        {m.displayName}
+                        {m.isCreator && (
+                          <Crown className="w-2.5 h-2.5 text-[#E5A93D]" aria-label="Creator" />
+                        )}
+                      </span>
+                    ))
+                  )}
                 </p>
               </div>
             </div>

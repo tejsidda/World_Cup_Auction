@@ -17,6 +17,12 @@ export type DbPointHistoryRow = {
   recorded_at: string;
 };
 
+export type DbTeamMemberRow = {
+  slot: number;
+  user_id: string;
+  profiles: { display_name: string } | { display_name: string }[] | null;
+};
+
 export type DbTeamRow = {
   id: string;
   manager_name: string;
@@ -24,8 +30,10 @@ export type DbTeamRow = {
   budget_total: number;
   points_last_24h: number;
   sort_order: number;
+  created_by: string | null;
   players: DbPlayerRow[];
   team_point_history: DbPointHistoryRow[];
+  team_members: DbTeamMemberRow[];
 };
 
 export type DbPoolPlayerRow = {

@@ -12,6 +12,12 @@ export interface Player {
   price?: number;
 }
 
+export interface TeamMemberInfo {
+  userId: string;
+  displayName: string;
+  isCreator: boolean;
+}
+
 export interface Manager {
   id: string;
   name: string;
@@ -23,6 +29,7 @@ export interface Manager {
   squadCount: number;
   roster: Player[];
   topAsset: Player;
+  members: TeamMemberInfo[];
 }
 
 export type PoolStats = {
