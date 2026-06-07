@@ -4,7 +4,7 @@ import type { Position } from '../types';
 export const MAX_TEAMS = 8;
 
 /** Max players per franchise roster */
-export const SQUAD_SIZE = 30;
+export const SQUAD_SIZE = 40;
 
 /** Default auction purse (millions) — used until real spend data exists */
 export const DEFAULT_BUDGET_M = 200;

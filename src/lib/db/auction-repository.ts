@@ -639,6 +639,27 @@ export async function submitBid(teamId: string, amount: number | null): Promise<
   const open = await getOpenLot();
   if (!open) throw new Error('Bidding is not open right now');
 
+  // Validate affordability and squad room at submit time so bidders get
+  // immediate feedback instead of being silently skipped at resolution.
+  // Passes (amount === null) are always allowed.
+  if (amount !== null) {
+    const { team, squadCount, remaining } = await getTeamAuctionState(teamId);
+    if (squadCount >= SQUAD_SIZE) {
+      throw new Error(`${team.team_name} squad is full (${SQUAD_SIZE}/${SQUAD_SIZE})`);
+    }
+    if (amount > remaining + EPSILON) {
+      throw new Error(
+        `Bid exceeds budget — ${team.team_name} has $${remaining.toFixed(1)}M remaining`
+      );
+    }
+  }
+
+  // Best-effort guard against a lot that closed between read and write.
+  const stillOpen = await getOpenLot();
+  if (!stillOpen || stillOpen.id !== open.id) {
+    throw new Error('Bidding just closed — your bid was not submitted');
+  }
+
   const bidsDb = createServiceSupabase();
   const { error } = await bidsDb
     .from('bids')
@@ -739,7 +760,8 @@ export async function getCurrentLotState(teamId: string | null): Promise<Current
       const { count } = await bidsDb
         .from('bids')
         .select('*', { count: 'exact', head: true })
-        .eq('lot_id', lot.id);
+        .eq('lot_id', lot.id)
+        .not('amount', 'is', null);
       const mine = await myBidFor(lot.id);
       return {
         lotId: lot.id,
