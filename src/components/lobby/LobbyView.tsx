@@ -8,9 +8,11 @@ import {
   Crown,
   Loader2,
   LogIn,
+  Pencil,
   Plus,
   UserPlus,
   Users,
+  X,
 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { cn } from '@/lib/utils';
@@ -24,6 +26,8 @@ export function LobbyView() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [teamName, setTeamName] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
   const firstLoad = useRef(true);
 
   const load = useCallback(async () => {
@@ -73,6 +77,12 @@ export function LobbyView() {
     e.preventDefault();
     const ok = await act('/api/session/team/create', { name: teamName });
     if (ok) setTeamName('');
+  }
+
+  async function handleRename(e: FormEvent) {
+    e.preventDefault();
+    const ok = await act('/api/session/team/rename', { name: nameDraft });
+    if (ok) setEditing(false);
   }
 
   if (loadError) {
@@ -143,7 +153,52 @@ export function LobbyView() {
               {myTeam.members.length}/2 players
             </span>
           </div>
-          <p className="text-[24px] fifa-headline text-white">{myTeam.name}</p>
+          {editing ? (
+            <form onSubmit={handleRename} className="flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                maxLength={40}
+                autoFocus
+                disabled={busy}
+                className="flex-1 min-w-[180px] bg-black/50 border border-[#00A94F]/40 rounded-lg px-4 py-2 text-[18px] fifa-headline text-white outline-none focus:border-[#00A94F] disabled:opacity-50"
+              />
+              <button
+                type="submit"
+                disabled={busy || !nameDraft.trim() || nameDraft.trim() === myTeam.name}
+                className="inline-flex items-center gap-1.5 text-[12px] font-display font-semibold uppercase tracking-wide px-3 py-2 rounded-sm bg-[#00A94F]/15 border border-[#00A94F]/40 text-[#00A94F] hover:bg-[#00A94F]/25 disabled:opacity-50"
+              >
+                {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                Save
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setEditing(false)}
+                className="inline-flex items-center gap-1.5 text-[12px] px-3 py-2 rounded-sm border border-white/[0.1] text-white/50 hover:text-white"
+              >
+                <X className="w-3.5 h-3.5" /> Cancel
+              </button>
+            </form>
+          ) : (
+            <div className="flex items-center gap-2">
+              <p className="text-[24px] fifa-headline text-white">{myTeam.name}</p>
+              <button
+                type="button"
+                aria-label="Edit team name"
+                title="Edit team name"
+                onClick={() => {
+                  setNameDraft(myTeam.name);
+                  setActionError(null);
+                  setEditing(true);
+                }}
+                className="inline-flex items-center justify-center w-7 h-7 rounded-sm border border-white/[0.1] bg-white/[0.04] text-white/45 hover:text-white hover:border-white/[0.2] transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
           <div className="flex flex-col gap-2">
             {myTeam.members.map((m) => (

@@ -150,6 +150,26 @@ export async function createTeam(
   return team.id;
 }
 
+export async function renameTeam(
+  supabase: SupabaseClient,
+  userId: string,
+  name: string
+): Promise<void> {
+  const teamName = name.trim();
+  if (!teamName) throw new Error('Enter a team name');
+  if (teamName.length > 40) throw new Error('Team name is too long');
+
+  const membership = await getMyMembership(supabase, userId);
+  if (!membership) throw new Error('You are not on a team');
+
+  const { error } = await supabase
+    .from('teams')
+    .update({ team_name: teamName, manager_name: teamName })
+    .eq('id', membership.team_id);
+
+  if (error) throw new Error(error.message);
+}
+
 export async function joinTeam(
   supabase: SupabaseClient,
   userId: string,
