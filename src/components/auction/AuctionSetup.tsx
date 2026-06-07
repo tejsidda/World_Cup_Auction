@@ -73,7 +73,9 @@ export function AuctionSetup({ leagueData, onStarted }: AuctionSetupProps) {
                     <p className="text-[14px] font-display font-bold uppercase tracking-wide text-white truncate">
                       {team.teamName}
                     </p>
-                    <p className="fifa-stat-label">{team.name}</p>
+                    <p className="fifa-stat-label truncate">
+                      {team.members.map((m) => m.displayName).join(' · ') || 'No members yet'}
+                    </p>
                   </div>
                   <span className="fifa-stat-value text-[#E5A93D] text-[13px] shrink-0 ml-3">
                     ${team.budgetTotal}M

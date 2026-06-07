@@ -104,7 +104,9 @@ export function FranchisePicker({
                           <p className="text-[13px] font-display font-bold uppercase tracking-wide text-white truncate">
                             {team.teamName}
                           </p>
-                          <p className="fifa-stat-label mt-0.5 truncate">{team.name}</p>
+                          <p className="fifa-stat-label mt-0.5 truncate">
+                            {team.members.map((m) => m.displayName).join(' · ') || 'No members yet'}
+                          </p>
                           <p className="fifa-stat-label mt-1">
                             <span className="text-[#E5A93D]">${remaining.toFixed(1)}M</span>
                             {' · '}

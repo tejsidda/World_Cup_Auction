@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'motion/react';
+import { Crown } from 'lucide-react';
 import { Manager } from '../types';
 import { cn } from '../lib/utils';
 import { SplitText } from './SplitText';
@@ -68,7 +69,21 @@ export function PointsTable({ leagueData }: PointsTableProps) {
                     <SplitText text={manager.teamName} delay={index * 0.04} stagger={0.015} className="truncate max-w-full" />
                     {isTopMover && <span className="flex items-center text-[#00A94F] border border-[#00A94F]/25 bg-[#00A94F]/10 px-1.5 py-[1px] rounded-sm text-[9px] uppercase tracking-widest font-display font-semibold shrink-0">Top Mover</span>}
                   </h3>
-                  <p className="text-[12px] sm:text-[13px] text-[#666] truncate">{manager.name}</p>
+                  <p className="text-[12px] sm:text-[13px] text-[#666] truncate flex flex-wrap items-center gap-1.5">
+                    {manager.members.length === 0 ? (
+                      <span className="italic text-[#555]">No members yet</span>
+                    ) : (
+                      manager.members.map((m, i) => (
+                        <span key={m.userId} className="inline-flex items-center gap-1">
+                          {i > 0 && <span className="text-[#444]">&middot;</span>}
+                          {m.displayName}
+                          {m.isCreator && (
+                            <Crown className="w-2.5 h-2.5 text-[#E5A93D]" aria-label="Creator" />
+                          )}
+                        </span>
+                      ))
+                    )}
+                  </p>
                 </div>
               </div>
 

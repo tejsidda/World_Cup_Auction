@@ -334,7 +334,9 @@ export function AuctionRoom({ leagueData, onSold }: AuctionRoomProps) {
                     <div className="text-white font-display font-bold text-[15px] truncate max-w-[150px] tracking-wide uppercase">
                       {team.teamName}
                     </div>
-                    <div className="fifa-stat-label mt-0.5">{team.name}</div>
+                    <div className="fifa-stat-label mt-0.5 truncate max-w-[150px]">
+                      {team.members.map((m) => m.displayName).join(' · ') || 'No members yet'}
+                    </div>
                   </div>
                   <div className="fifa-stat-value text-[#E5A93D] text-[15px]">
                     ${getBudgetRemainingM(team).toFixed(1)}M
