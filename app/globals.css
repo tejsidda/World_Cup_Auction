@@ -1,0 +1,130 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, monospace;
+  --font-display: var(--font-barlow-condensed), ui-sans-serif, system-ui, sans-serif;
+  --color-fifa-green: #00a94f;
+  --color-fifa-gold: #e5a93d;
+  --color-fifa-navy: #0b1a2e;
+}
+
+@layer utilities {
+  .radial-gradient-centered {
+    background: radial-gradient(circle at center, rgba(0, 169, 79, 0.06) 0%, transparent 60%);
+  }
+
+  .fifa-kicker {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--color-fifa-green);
+  }
+
+  .fifa-headline {
+    font-family: var(--font-display);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+    line-height: 0.92;
+  }
+
+  .fifa-subtitle {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    color: rgba(255, 255, 255, 0.55);
+    margin-top: 10px;
+    line-height: 1.4;
+  }
+
+  .fifa-page-rule {
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      var(--color-fifa-green) 0%,
+      var(--color-fifa-gold) 42%,
+      rgba(255, 255, 255, 0.06) 100%
+    );
+    border-radius: 1px;
+  }
+
+  .fifa-section-rule {
+    border-bottom: 1px solid rgba(0, 169, 79, 0.18);
+  }
+
+  .fifa-section-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #fff;
+  }
+
+  .fifa-panel-label {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  .fifa-stat-label {
+    font-family: var(--font-display);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.45);
+  }
+
+  .fifa-stat-value {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+  }
+
+  .fifa-row-rule {
+    border-color: rgba(0, 169, 79, 0.1);
+  }
+
+  .fifa-card {
+    border: 1px solid rgba(0, 169, 79, 0.12);
+    background: linear-gradient(180deg, rgba(0, 169, 79, 0.04) 0%, rgba(0, 0, 0, 0.45) 100%);
+  }
+
+  .fifa-badge {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 169, 79, 0.25);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 169, 79, 0.5);
+}
