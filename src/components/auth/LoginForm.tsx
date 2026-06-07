@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { KeyRound, Loader2, Mail, UserPlus } from 'lucide-react';
+import { KeyRound, Loader2, UserPlus } from 'lucide-react';
 import { getAuthSupabase } from '@/lib/supabase/auth-client';
 import { cn } from '@/lib/utils';
 
@@ -10,7 +10,7 @@ interface LoginFormProps {
   nextPath: string;
 }
 
-type AuthMode = 'sign-in' | 'sign-up' | 'magic-link';
+type AuthMode = 'sign-in' | 'sign-up';
 
 export function LoginForm({ nextPath }: LoginFormProps) {
   const router = useRouter();
@@ -95,32 +95,6 @@ export function LoginForm({ nextPath }: LoginFormProps) {
     }
   }
 
-  async function handleMagicLink(e: FormEvent) {
-    e.preventDefault();
-    setSubmitting(true);
-    resetErrors();
-
-    try {
-      const trimmed = email.trim().toLowerCase();
-      if (!trimmed) throw new Error('Enter your email address');
-
-      const supabase = getAuthSupabase();
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
-
-      const { error: signInError } = await supabase.auth.signInWithOtp({
-        email: trimmed,
-        options: { emailRedirectTo: redirectTo },
-      });
-
-      if (signInError) throw signInError;
-      setSent(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not send login link');
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   if (sent && mode === 'sign-up') {
     return (
       <div className="fifa-card backdrop-blur-md rounded-sm p-8 border-[#00A94F]/25 space-y-4">
@@ -137,31 +111,6 @@ export function LoginForm({ nextPath }: LoginFormProps) {
           className="text-[13px] text-[#00A94F] hover:underline"
         >
           Back to sign in
-        </button>
-      </div>
-    );
-  }
-
-  if (sent && mode === 'magic-link') {
-    return (
-      <div className="fifa-card backdrop-blur-md rounded-sm p-8 border-[#00A94F]/25 space-y-4">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-sm bg-[#00A94F]/10 border border-[#00A94F]/25 text-[#00A94F] fifa-badge">
-          <Mail className="w-3.5 h-3.5" />
-          Check your email
-        </div>
-        <p className="text-[15px] text-white/85 leading-relaxed">
-          Magic link sent to{' '}
-          <span className="font-mono text-[#E5A93D]">{email.trim().toLowerCase()}</span>.
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            setSent(false);
-            setMode('sign-in');
-          }}
-          className="text-[13px] text-white/50 hover:text-white transition-colors"
-        >
-          Use password instead
         </button>
       </div>
     );
@@ -202,13 +151,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
       </p>
 
       <form
-        onSubmit={
-          mode === 'sign-up'
-            ? handleSignUp
-            : mode === 'magic-link'
-              ? handleMagicLink
-              : handlePasswordSignIn
-        }
+        onSubmit={mode === 'sign-up' ? handleSignUp : handlePasswordSignIn}
         className="space-y-4"
       >
         {mode === 'sign-up' && (
@@ -240,22 +183,20 @@ export function LoginForm({ nextPath }: LoginFormProps) {
           />
         </label>
 
-        {mode !== 'magic-link' && (
-          <label className="flex flex-col gap-2">
-            <span className="fifa-stat-label">Password</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              minLength={6}
-              autoComplete={mode === 'sign-up' ? 'new-password' : 'current-password'}
-              disabled={submitting}
-              className={inputClass}
-            />
-          </label>
-        )}
+        <label className="flex flex-col gap-2">
+          <span className="fifa-stat-label">Password</span>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+            minLength={6}
+            autoComplete={mode === 'sign-up' ? 'new-password' : 'current-password'}
+            disabled={submitting}
+            className={inputClass}
+          />
+        </label>
 
         {error && (
           <p className="text-[13px] text-red-400 border border-red-500/20 bg-red-500/5 rounded-lg px-4 py-3">
@@ -276,44 +217,12 @@ export function LoginForm({ nextPath }: LoginFormProps) {
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : mode === 'sign-up' ? (
             <UserPlus className="w-4 h-4" />
-          ) : mode === 'magic-link' ? (
-            <Mail className="w-4 h-4" />
           ) : (
             <KeyRound className="w-4 h-4" />
           )}
-          {submitting
-            ? 'Working…'
-            : mode === 'sign-up'
-              ? 'Create account'
-              : mode === 'magic-link'
-                ? 'Send magic link'
-                : 'Sign in'}
+          {submitting ? 'Working…' : mode === 'sign-up' ? 'Create account' : 'Sign in'}
         </button>
       </form>
-
-      {mode !== 'magic-link' ? (
-        <button
-          type="button"
-          onClick={() => {
-            setMode('magic-link');
-            resetErrors();
-          }}
-          className="text-[12px] text-white/40 hover:text-white/70 transition-colors"
-        >
-          Prefer email magic link instead
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={() => {
-            setMode('sign-in');
-            resetErrors();
-          }}
-          className="text-[12px] text-white/40 hover:text-white/70 transition-colors"
-        >
-          Use password instead
-        </button>
-      )}
     </div>
   );
 }
