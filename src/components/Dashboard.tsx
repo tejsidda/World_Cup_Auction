@@ -300,6 +300,8 @@ export function Dashboard() {
                   managerId={selectedManagerId}
                   leagueData={leagueData}
                   onBack={handleBackToTeams}
+                  isAdmin={isAdmin}
+                  onReplaced={() => reload()}
                 />
               </div>
             </motion.div>

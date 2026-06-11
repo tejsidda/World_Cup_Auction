@@ -333,6 +333,90 @@ export async function searchPoolPlayers(query: string, limit = 20): Promise<Pool
   return (data ?? []).map((row) => mapPoolRow(row as PoolRow));
 }
 
+export async function searchUnassignedPoolPlayers(
+  query: string,
+  limit = 30
+): Promise<PoolPlayer[]> {
+  const supabase = createServerSupabase();
+  let q = supabase
+    .from('pool_players')
+    .select('fifa_id, display_name, country_abbr, squad_id, position, auction_status, points')
+    .in('auction_status', ['available', 'skipped'])
+    .order('display_name')
+    .limit(limit);
+
+  const trimmed = query.trim();
+  if (trimmed.length >= 2) {
+    q = q.ilike('display_name', `%${trimmed}%`);
+  }
+
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => mapPoolRow(row as PoolRow));
+}
+
+export async function replacePlayer(
+  existingPlayerId: string,
+  replacementFifaId: number,
+  teamId: string
+): Promise<{ replacedName: string; replacementName: string }> {
+  const supabase = createServerSupabase();
+
+  const { data: existing, error: fetchErr } = await supabase
+    .from('players')
+    .select('id, name, fifa_id, team_id')
+    .eq('id', existingPlayerId)
+    .single();
+
+  if (fetchErr || !existing) throw new Error('Player not found');
+  if (existing.team_id !== teamId) throw new Error('Player does not belong to this franchise');
+
+  const { data: replacement, error: poolErr } = await supabase
+    .from('pool_players')
+    .select('fifa_id, display_name, country_abbr, squad_id, position, points')
+    .eq('fifa_id', replacementFifaId)
+    .in('auction_status', ['available', 'skipped'])
+    .single();
+
+  if (poolErr || !replacement) {
+    throw new Error('Replacement player not found or already assigned');
+  }
+
+  const { error: deleteErr } = await supabase
+    .from('players')
+    .delete()
+    .eq('id', existingPlayerId);
+
+  if (deleteErr) throw new Error(deleteErr.message);
+
+  if (existing.fifa_id) {
+    await supabase
+      .from('pool_players')
+      .update({ auction_status: 'available' })
+      .eq('fifa_id', existing.fifa_id);
+  }
+
+  const { error: insertErr } = await supabase.from('players').insert({
+    team_id: teamId,
+    fifa_id: replacement.fifa_id,
+    squad_id: replacement.squad_id,
+    name: replacement.display_name,
+    country: replacement.country_abbr,
+    position: replacement.position,
+    points: replacement.points,
+    price_m: 0,
+  });
+
+  if (insertErr) throw new Error(insertErr.message);
+
+  await supabase
+    .from('pool_players')
+    .update({ auction_status: 'sold' })
+    .eq('fifa_id', replacementFifaId);
+
+  return { replacedName: existing.name, replacementName: replacement.display_name };
+}
+
 export async function resetAuction(): Promise<{
   poolReset: number;
   rostersCleared: number;

@@ -9,6 +9,7 @@ import { AddTeamForm } from './AddTeamForm';
 import { TeamAdminList } from './TeamAdminList';
 import { ImportFifaPool } from './ImportFifaPool';
 import { ResetAuction } from './ResetAuction';
+import { CreateUserForm } from './CreateUserForm';
 
 interface AdminPageProps {
   leagueData: Manager[];
@@ -39,6 +40,18 @@ export function AdminPage({ leagueData, onTeamAdded }: AdminPageProps) {
           FIFA player pool
         </h3>
         <ImportFifaPool />
+      </motion.section>
+
+      <motion.section
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.02 }}
+        className="rounded-2xl border border-[#00A94F]/20 bg-black/40 backdrop-blur-sm p-6 sm:p-8"
+      >
+        <h3 className="text-[13px] font-semibold uppercase tracking-widest text-[#888] mb-6 pb-3 border-b border-white/[0.06]">
+          Create player login
+        </h3>
+        <CreateUserForm leagueData={leagueData} onCreated={onTeamAdded} />
       </motion.section>
 
       <motion.section
